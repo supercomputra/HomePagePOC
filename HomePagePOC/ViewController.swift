@@ -57,7 +57,19 @@ extension UIViewController {
     }
 }
 
-class ViewController: UIViewController, TableViewControllerDelegate, UIScrollViewDelegate {
+enum ScrollState {
+    case pending
+    case scrolling
+    case ended
+}
+
+enum ScrollDirection {
+    case pending
+    case up
+    case down
+}
+
+class ViewController: UIViewController, TableViewControllerDelegate, UIScrollViewDelegate, UIGestureRecognizerDelegate {
 
     private lazy var productDirectoryViewController: ProductDirectoryViewController = {
         let controller: ProductDirectoryViewController = ProductDirectoryViewController(products: ProductDirectoryViewController.products)
@@ -81,9 +93,10 @@ class ViewController: UIViewController, TableViewControllerDelegate, UIScrollVie
         return label
     }()
     
-    private let scrollView: UIScrollView = {
+    var scrollView: UIScrollView = {
         let view: UIScrollView = UIScrollView()
         view.backgroundColor = UIColor.systemBackground
+        view.clipsToBounds = false
         return view
     }()
     
@@ -120,12 +133,17 @@ class ViewController: UIViewController, TableViewControllerDelegate, UIScrollVie
         return appearance
     }()
     
-    private let headerViewHeight: CGFloat = 200.0
+    private let headerViewHeight: CGFloat = 400.0
     
     private var pageViewHeightConstraint: NSLayoutConstraint!
     
+    var scrollState: ScrollState = .pending
+    var scrollDirection: ScrollDirection = .pending
+    var lastContentOffset: CGPoint = .zero
+    
     override func loadView() {
         view = scrollView
+        scrollView.delegate = self
     }
     
     private func setupHeaderView(topAnchor: NSLayoutYAxisAnchor) {
@@ -212,61 +230,104 @@ class ViewController: UIViewController, TableViewControllerDelegate, UIScrollVie
     private lazy var scrollingDecelerator: ScrollingDecelerator = ScrollingDecelerator(scrollView: self.scrollView)
     
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        let isBorderLabelReachingTopBound: Bool = self.scrollView.adjustedContentOffset.y >= borderLabel.frame.origin.y
+        guard borderLabel.frame.origin.y != 0.0 else { return }
         
-        if isBorderLabelReachingTopBound {
+        let isBorderLabelReachingTopBound: Bool = self.scrollView.adjustedContentOffset.y >= borderLabel.frame.origin.y
+        if isBorderLabelReachingTopBound && borderLabel.frame.origin.y != 0.0 {
+            scrollState = .ended
             // Store transferable vertical offset before updates
             let transferableVerticalOffset = scrollView.adjustedContentOffset.y - borderLabel.frame.origin.y
-            
+
             // Lock scroll view content offset
             var contentOffset: CGPoint = scrollView.adjustedContentOffset
             contentOffset.y = borderLabel.frame.origin.y
             scrollView.setAdjustedContentOffset(contentOffset)
             
-            scrollView.panGestureRecognizer.isEnabled = true
-            
-            // Transfer remainder content offset to active scrollable
+//            self.scrollView.panGestureRecognizer.isEnabled = false
+//            scrollView.panGestureRecognizer.isEnabled = true
+////            scrollView.isScrollEnabled = false
+//
+//            // Transfer remainder content offset to active scrollable
             setActivePagingScrollViewVerticalContentOffset(transferableVerticalOffset)
         } else {
+            scrollState = .scrolling
+            
             if let scrollable: ScrollableViewController = pageViewController.activeViewController as? ScrollableViewController {
-                scrollable.setScrollViewContentOffset(.zero)
-                scrollable.setPanGestureRecognizerEnabled(false)
+//                scrollable.setScrollViewContentOffset(.zero)
+//                scrollable.setPanGestureRecognizerEnabled(false)
+////                redViewController.tableView.isScrollEnabled = false
+                
+                if scrollable.scrollViewContentOffset.y > 0.0 {
+                    var contentOffset: CGPoint = scrollView.adjustedContentOffset
+                    contentOffset.y = borderLabel.frame.origin.y
+                    scrollView.setAdjustedContentOffset(contentOffset)
+                    
+                    scrollState = .ended
+                }
             }
         }
+        
+        if scrollView.adjustedContentOffset.y > lastContentOffset.y {
+            scrollDirection = .up
+        } else {
+            scrollDirection = .down
+        }
+        
+        lastContentOffset = scrollView.adjustedContentOffset
     }
     
     func scrollViewWillEndDragging(_ scrollView: UIScrollView, withVelocity velocity: CGPoint, targetContentOffset: UnsafeMutablePointer<CGPoint>) {
         print(velocity)
+        
+    }
+    
+    func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+//        outerDeceleration = nil
+    }
+    
+    func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+//        outerDeceleration = nil
     }
     
     func tableViewController(_ controller: TableViewController, scrollViewDidScroll scrollView: UIScrollView) {
-        let isUserPullingScrollView: Bool = scrollView.contentOffset.y <= 0
-        let isBorderLabelReachingTopBound: Bool = self.scrollView.adjustedContentOffset.y >= borderLabel.frame.origin.y
-        let shouldTransferExcessOffset: Bool = !isBorderLabelReachingTopBound || isUserPullingScrollView
-        
-        if shouldTransferExcessOffset {
-            // Adjust main scroll view content offset
-            var targetOffset: CGPoint = self.scrollView.adjustedContentOffset
-            targetOffset.y += scrollView.contentOffset.y
-            self.scrollView.setAdjustedContentOffset(targetOffset, animated: false)
-            
-            controller.setPanGestureRecognizerEnabled(false)
-
-            // Set interacting scroll view content offset to zero
-            scrollView.setContentOffset(.zero, animated: false)
-        } else {
-            controller.setPanGestureRecognizerEnabled(true)
+        if scrollState == .scrolling {
+            controller.setScrollViewContentOffset(.zero)
         }
+        
+//        let isUserPullingScrollView: Bool = scrollView.contentOffset.y <= 0
+//        let isBorderLabelReachingTopBound: Bool = self.scrollView.adjustedContentOffset.y >= borderLabel.frame.origin.y
+//        let shouldTransferExcessOffset: Bool = !isBorderLabelReachingTopBound || isUserPullingScrollView
+////////        controller.setDeceleratorInvalidateIfNeeded()
+//        if shouldTransferExcessOffset {
+//            print("hehe")
+//            // Set interacting scroll view content offset to zero
+//            scrollView.setContentOffset(.zero, animated: false)
+////            controller.setPanGestureRecognizerEnabled(false)
+//
+////            self.scrollView.panGestureRecognizer.isEnabled = true
+//
+//            // Adjust main scroll view content offset
+//            var targetOffset: CGPoint = self.scrollView.adjustedContentOffset
+//            targetOffset.y += scrollView.contentOffset.y
+//            self.scrollView.setAdjustedContentOffset(targetOffset, animated: false)
+////            self.scrollView.panGestureRecognizer.isEnabled = true
+//////            redViewController.tableView.isScrollEnabled = false
+//
+//        } else {
+//            print("haha")
+////            controller.setPanGestureRecognizerEnabled(true)
+////            redViewController.tableView.isScrollEnabled = true
+//        }
     }
     
     func tableViewController(_ controller: TableViewController, scrollViewWillEndDragging scrollView: UIScrollView, velocity: CGPoint, targetContentOffset: UnsafeMutablePointer<CGPoint>) {
-//        let isPullingScrollView: Bool = scrollView.contentOffset.y <= 0
+        //        let isPullingScrollView: Bool = scrollView.contentOffset.y <= 0
 //        let hasBorderLabelReachingTop: Bool = self.scrollView.adjustedContentOffset.y >= borderLabel.frame.origin.y
 //        let shouldTransferExcessOffset: Bool = !hasBorderLabelReachingTop || isPullingScrollView
-//
+////
 //        if shouldTransferExcessOffset {
 //
-////            scrollingDecelerator.decelerate(by: ScrollingDeceleration(velocity: velocity, decelerationRate: scrollView.decelerationRate))
+//            scrollingDecelerator.decelerate(by: ScrollingDeceleration(velocity: velocity, decelerationRate: scrollView.decelerationRate))
 //        }
         
     }
@@ -358,7 +419,7 @@ protocol TableViewControllerDelegate: AnyObject {
     func tableViewController(_ controller: TableViewController, scrollViewDidChangeAdjustedContentInsetForScrollView scrollView: UIScrollView)
 }
 
-class TableViewController: UIViewController, UITableViewDataSource, UITableViewDelegate, ScrollableViewController {
+class TableViewController: UIViewController, UITableViewDataSource, UITableViewDelegate, ScrollableViewController, UIGestureRecognizerDelegate {
     var scrollViewContentInset: UIEdgeInsets {
         return tableView.contentInset
     }
@@ -387,7 +448,11 @@ class TableViewController: UIViewController, UITableViewDataSource, UITableViewD
     
     weak var delegate: TableViewControllerDelegate?
     
-    private(set) lazy var tableView: UITableView = UITableView()
+    private(set) lazy var tableView: UITableView = {
+        let tableView = TableView()
+        tableView.panDelegate = self
+        return tableView
+    }()
     
     private lazy var items: [String] = {
         return (0...100).map { index in
@@ -405,6 +470,7 @@ class TableViewController: UIViewController, UITableViewDataSource, UITableViewD
         tableView.showsHorizontalScrollIndicator = false
         tableView.delegate = self
         tableView.dataSource = self
+        tableView.bounces = false
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: String(describing: UITableViewCell.self))
     }
     
@@ -437,5 +503,29 @@ class TableViewController: UIViewController, UITableViewDataSource, UITableViewD
     
     func scrollViewWillEndDragging(_ scrollView: UIScrollView, withVelocity velocity: CGPoint, targetContentOffset: UnsafeMutablePointer<CGPoint>) {
         delegate?.tableViewController(self, scrollViewWillEndDragging: scrollView, velocity: velocity, targetContentOffset: targetContentOffset)
+    }
+    
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        if let viewController: ViewController = delegate as? ViewController {
+            if otherGestureRecognizer == viewController.scrollView.panGestureRecognizer {
+                return true
+            } else {
+                return false
+            }
+        }
+        return false
+    }
+}
+
+class TableView: UITableView, UIGestureRecognizerDelegate {
+    weak var panDelegate: UIGestureRecognizerDelegate?
+    
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        if let delegate = panDelegate {
+            if let result = delegate.gestureRecognizer?(gestureRecognizer, shouldRecognizeSimultaneouslyWith: otherGestureRecognizer) {
+                return result
+            }
+        }
+        return false
     }
 }
