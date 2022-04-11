@@ -236,7 +236,7 @@ class ViewController: UIViewController, TableViewControllerDelegate, UIScrollVie
         if isBorderLabelReachingTopBound && borderLabel.frame.origin.y != 0.0 {
             scrollState = .ended
             // Store transferable vertical offset before updates
-//            let transferableVerticalOffset = scrollView.adjustedContentOffset.y - borderLabel.frame.origin.y
+            let transferableVerticalOffset = scrollView.adjustedContentOffset.y - borderLabel.frame.origin.y
 
             // Lock scroll view content offset
             var contentOffset: CGPoint = scrollView.adjustedContentOffset
@@ -248,7 +248,7 @@ class ViewController: UIViewController, TableViewControllerDelegate, UIScrollVie
 ////            scrollView.isScrollEnabled = false
 //
 //            // Transfer remainder content offset to active scrollable
-//            setActivePagingScrollViewVerticalContentOffset(transferableVerticalOffset)
+            setActivePagingScrollViewVerticalContentOffset(transferableVerticalOffset)
         } else {
             scrollState = .scrolling
             
