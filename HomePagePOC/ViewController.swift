@@ -120,7 +120,7 @@ class ViewController: UIViewController, TableViewControllerDelegate, UIScrollVie
         return appearance
     }()
     
-    private let headerViewHeight: CGFloat = 200.0
+    private let headerViewHeight: CGFloat = 400.0
     
     private var pageViewHeightConstraint: NSLayoutConstraint!
     
@@ -206,6 +206,8 @@ class ViewController: UIViewController, TableViewControllerDelegate, UIScrollVie
             var contentOffset = scrollable.scrollViewContentOffset
             contentOffset.y += verticalOffset
             scrollable.setScrollViewContentOffset(contentOffset)
+            
+            scrollable.setPanGestureRecognizerEnabled(true)
         }
     }
     
@@ -228,9 +230,15 @@ class ViewController: UIViewController, TableViewControllerDelegate, UIScrollVie
             // Transfer remainder content offset to active scrollable
             setActivePagingScrollViewVerticalContentOffset(transferableVerticalOffset)
         } else {
-            if let scrollable: ScrollableViewController = pageViewController.activeViewController as? ScrollableViewController {
-                scrollable.setScrollViewContentOffset(.zero)
-                scrollable.setPanGestureRecognizerEnabled(false)
+            if self.scrollView.adjustedContentOffset.y > 0.0 {
+                if let scrollable: ScrollableViewController = pageViewController.activeViewController as? ScrollableViewController {
+                    scrollable.setScrollViewContentOffset(.zero)
+                    scrollable.setPanGestureRecognizerEnabled(false)
+                }
+            } else {
+                var contentOffset: CGPoint = self.scrollView.adjustedContentOffset
+                contentOffset.y = 0.0
+                self.scrollView.setAdjustedContentOffset(contentOffset)
             }
         }
     }
@@ -253,7 +261,7 @@ class ViewController: UIViewController, TableViewControllerDelegate, UIScrollVie
             controller.setPanGestureRecognizerEnabled(false)
 
             // Set interacting scroll view content offset to zero
-            scrollView.setContentOffset(.zero, animated: false)
+//            scrollView.setContentOffset(.zero, animated: false)
         } else {
             controller.setPanGestureRecognizerEnabled(true)
         }
